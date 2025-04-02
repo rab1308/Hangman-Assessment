@@ -1,0 +1,541 @@
+import csv
+import random
+import os
+
+# This is a simple Hangman game where the player guesses letters to reveal a hidden word.
+
+# List of Hangman Stages to display the hangman figure as the player makes incorrect guesses. 
+# Each stage corresponds to the number of incorrect guesses.
+HANGMAN_STAGES = [
+    """
+     ------
+     |    |
+          |
+          |
+          |
+          |
+    =========""",
+    """
+     ------
+     |    |
+     O    |
+          |
+          |
+          |
+    =========""",
+    """
+     ------
+     |    |
+     O    |
+     |    |
+          |
+          |
+    =========""",
+    """
+     ------
+     |    |
+     O    |
+    /|    |
+          |
+          |
+    =========""",
+    """
+     ------
+     |    |
+     O    |
+    /|\   |
+          |
+          |
+    =========""",
+    """
+     ------
+     |    |
+     O    |
+    /|\   |
+    /     |
+          |
+    =========""",
+    """
+     ------
+     |    |
+     O    |
+    /|\   |
+    / \   |
+          |
+    ========="""
+]
+
+# ANSI escape codes used to change the colour of the text in the terminal.
+RED = "\033[91m" # Code for red text
+GREEN = "\033[92m" # Code for green text
+YELLOW = "\033[93m" # Code for yellow text
+RESET = "\033[0m" # Code to reset text colour to default
+
+# Defines a function that clears the screen for Windows and Linux/macOS systems and prints a message.
+def clear_screen():
+    os.system('cls' if os.name == 'nt' else 'clear')
+
+
+# Defines a function that loads words and corresponding hints from CSV files while handling missing files and errors.
+def load_words(file_name):
+
+    ## Check if the CSV file exists
+    if not os.path.exists(file_name):
+        ### If the custom file is missing/doesn't exist, a new custom file is created.
+        if file_name == "custom.csv":
+            try:
+                #### Create file if it's the custom words file
+                with open(file_name, 'w', newline='') as file:
+                    writer = csv.writer(file)
+                    writer.writerow(["Word", "Hint"])  #### Write headers for the new custom file.
+                print(f"\n{YELLOW}Created new custom words file.{RESET}")
+                print(f"{YELLOW}Please add words via 'Manage Custom Words'.{RESET}")
+                return None
+            except Exception as e:
+                print(f"\n{RED}Failed to create {file_name}: {e}{RESET}")
+                return None
+        
+        ### If the file is not custom (easy/medium/hard), and it's missing/doesn't exist, inform this to the user.
+        else:
+            print(f"\n{RED}Missing file: {file_name}{RESET}")
+            print(f"{YELLOW}Please ensure these files are present:{RESET}")
+            print("- easy.csv\n- medium.csv\n- hard.csv")
+            return None
+    
+    ## Intialise an empty list to store words and hints. 
+    words = []
+
+    try:
+        ### Open the CSV file and read its contents.
+        with open(file_name, newline='') as file:
+            reader = csv.reader(file)
+            next(reader)  ### Skip the header row
+
+            file_contents = list(reader) ### Converts CSV reader to a list to allow multiple iterations, which is useful for checking file content without re-reading from the file.
+        
+        ### Iterate through the rows of the CSV file and append the words and hints to the list.
+        for row in file_contents:
+            if len(row) >= 2:
+                words.append((row[0].upper(), row[1]))
+
+        ### If the file is empty with no words, inform the user and return None.
+        if not words:
+            print(f"\n{RED}Error: The file {file_name} has no words to play with!{RESET}")
+            if file_name == "custom.csv":
+                print(f"{YELLOW}Please add words via 'Manage Custom Words' before playing first.{RESET}")
+            return None
+    
+    ## Handles various exceptions that may occur while reading the CSV file.
+    except PermissionError: # Handle PermissionError explicitly to guide users on file permissions
+        print(f"\n{RED}Permission denied when reading {file_name}{RESET}")
+        return None
+    except csv.Error as e:
+        print(f"\n{RED}Error reading CSV file: {e}{RESET}")
+        return None
+    except Exception as e:
+        print(f"\n{RED}Unexpected error: {e}{RESET}")
+        return None
+    
+    ## Returns a randomly chosen tuple consisting of a word and its hint from the list of words.
+    return random.choice(words)
+
+# Defines a function that allows the user to choose a difficulty level and other options for the game.
+def choose_difficulty():
+    clear_screen() # Clear screen before printing choices.
+
+    while True: # Loop to ask user for choice input.
+
+        print("\nWelcome to Hangman!")
+        print(f"{YELLOW}\n----- Choose your Difficulty -----{RESET}")
+        print("\n[1] Easy")
+        print("[2] Medium")
+        print("[3] Hard")
+        print("[4] Custom (Play with the words of your choice!)")
+        print("[5] Manage Custom Words")
+        print("[6] Exit the game")
+
+        choice = input("\nEnter your choice from 1-6: ").strip() # Prompts user to choose a difficulty/option.
+        clear_screen()
+
+        ### Based on the user's choice, return the corresponding CSV file name.
+        if choice == "1":
+            return "easy.csv"
+        elif choice == "2":
+            return "medium.csv"
+        elif choice == "3":
+            return "hard.csv"
+        elif choice == "4":
+            return "custom.csv"
+        
+        ### If the user chooses to manage custom words, call the function to manage custom words.
+        elif choice == "5":
+            clear_screen()
+            manage_custom_words()
+            continue
+
+        ### If the user chooses to exit the game, print a message and exit the program.
+        elif choice == "6":
+            print("Exiting game...")
+            exit()
+
+        ### If the user enters an invalid choice, print an error message to guide them towards valid inputs and prompt the user, preventing potential program errors.
+        else:
+            print(f"{RED}Invalid choice! Please enter a number between 1-6{RESET}")
+
+# Defines a function that allows the player to manage their custom word list (CSV)
+def manage_custom_words():
+    clear_screen()
+    while True:
+        print(f"{YELLOW}\n-----Custom Word List Manager-----{RESET}")
+        print("\n[1] View words")
+        print("[2] Add a word")
+        print("[3] Delete a word")
+        print("[4] Return to Main Menu")
+
+        choice = input("\nEnter your choice from 1-4: ").strip() # Prompts user to choose a difficulty/option.
+
+        ### Based on the user's choice, call the corresponding function to manage custom words.
+        if choice =='1':
+            view_custom_words() # If choice is 1, start the function which allows user to view their words.
+        elif choice == '2':
+            add_custom_word() # If choice is 2, start the function which allows user to add new words to their custom word list.
+        elif choice == '3':
+            delete_custom_word() # If choice is 3, start the function which allows user delete words from their custom word list.
+        elif choice == '4':
+            clear_screen() # If choice is 4, clear the screen, and break from the loop, leading to the Main Menu of the game.
+            break
+        
+        ### If the user enters an invalid choice, print an error message and prompt them to try again.
+        else:
+            print(f"{RED}Invalid choice! Please enter a number between 1-4{RESET}")
+            continue 
+
+# Defines a function that allows player to view their custom word list
+def view_custom_words():
+    clear_screen()
+    try:
+        with open("custom.csv", 'r') as file: # Open custom.csv file in 'read' mode.
+            reader = csv.reader(file) # Creates a CSV reader object
+            next(reader) # Skips header row
+
+            words_found = False
+            print(f"{YELLOW}\n----- Your Custom Words -----{RESET}\n")
+
+            #### Enumerate through the rows of the CSV file and print each word and its hint.
+            for i, row in enumerate(reader, 1):
+                if len(row) < 2:
+                    continue
+
+                print(f"[{i}] {row[0]}")
+                print(f"    Hint: {row[1]}\n")
+                words_found = True
+
+            #### If no words are found in the custom word list, inform the user.
+            if not words_found:
+                print(f"{RED}No custom words found!{RESET}")
+    
+    ## If custom.csv is not found, inform the user and suggest adding a word.
+    except FileNotFoundError:
+        print(f"{RED}Custom words file not found!{RESET}")
+        print(f"{YELLOW}Use 'Add a word' to create your first word.{RESET}")
+    
+
+    input("\nPress Enter to continue...")
+    clear_screen()
+    
+# Defines a function that allows the player to add a custom word and its hint to the custom word list.
+def add_custom_word():
+    clear_screen()
+
+    ## Initialise an empty list to store the existing words in the CSV file.
+    existing_words = []
+    try:
+        if os.path.exists("custom.csv"):
+            with open("custom.csv", 'r') as file:
+                reader = csv.reader(file)
+                next(reader)  # Skip header row
+                existing_words = [row[0].upper() for row in reader if row]  # Get all words in uppercase
+    except Exception as e:
+        print(f"{RED}Error reading existing words: {e}{RESET}")
+        input("\nPress Enter to continue...")
+        return
+    
+    while True:
+        new_custom_word = input("Enter a new word to add: ").strip()
+
+        ### If the word is empty, inform the user and prompt them to enter a word.
+        if not new_custom_word:
+            print(f"{RED}The word cannot be empty! Please enter a word.{RESET}")
+            continue
+
+        ### If the word contains non-alphabetic characters, inform the user and prompt them to enter a valid word.
+        if not new_custom_word.isalpha():
+            print(f"{RED}Invalid input! Please only use alphabetic characters.{RESET}") # Reject non-alphabetic input to prevent CSV injection or invalid words entering the list.
+            continue
+        
+        ### If the word already exists in the custom word list, inform the user and prompt them to enter a different word.
+        if new_custom_word.upper() in existing_words:
+            print(f"{RED}The word '{new_custom_word}' already exists! Please choose a different word.{RESET}")
+            continue
+        break
+
+    while True:
+        custom_word_hint = input("Enter a hint for the word: ").strip()
+
+        if not custom_word_hint:
+            print(f"{RED}Hint cannot be empty! Please enter a hint for the word.{RESET}")
+            continue
+        break
+
+    try:
+
+        with open("custom.csv", "a", newline="") as file:
+            writer = csv.writer(file)
+            writer.writerow([new_custom_word.upper(), custom_word_hint])
+        
+        print(f"{GREEN}The word '{new_custom_word}' was added successfully!{RESET}")
+        print(f"{GREEN}Word: {new_custom_word.upper()} | Hint: {custom_word_hint}{RESET}")
+        input("\nPress Enter to continue...")
+        clear_screen()
+
+    ## Handles exceptions that may occur while writing to the CSV file, ensuring data integrity and preventing program crashes due to file access issues.
+    except PermissionError:
+        print(f"{RED}Failed to save - check file permissions!{RESET}")
+        input("\nPress Enter to continue...")
+    except Exception as e:
+        print(f"{RED}Error saving word: {e}{RESET}")
+        input("\nPress Enter to continue...")
+
+        clear_screen()
+
+# Defines a function that allows the player to delete a custom word from the custom word list.
+def delete_custom_word():
+    clear_screen()
+    try:
+    
+        with open("custom.csv", 'r') as file:
+            reader = csv.reader(file)
+            next(reader)
+
+            words = []
+            for row in reader:
+                if len(row) < 2:
+                    continue
+                words.append((row[0].upper(), row[1]))
+
+        ### If no words are found in the custom word list, inform the user and return to the main menu.
+        if not words:
+            print(f"{RED}\nNo words found to delete! Please add some words first.{RESET}")
+            input("\nPress Enter to continue...")
+            clear_screen()
+            return
+    
+        print(f"{YELLOW}\n----- Custom Words List -----\n{RESET}")
+        ### Enumerate through the words and print each word and its hint.
+        for i, (word, hint) in enumerate(words, 1):
+            print(f"[{i}] {word}")
+            print(f"    Hint: {hint}\n")
+
+        while True:
+            try:
+                choice = int(input("Enter the number of the word you wish to delete (or enter 0 to cancel): "))
+                ##### If the user enters 0, cancel the deletion and return to the main menu.
+                if choice == 0:
+                    print("Deletion cancelled!")
+                    input("\nPress Enter to continue...")
+                    clear_screen()
+                    return
+                
+                ##### If the user enters a valid choice, break the loop.
+                if 1 <= choice <= len(words):
+                    break
+
+                ##### If the user enters an invalid choice, inform them and prompt them to enter a valid number.
+                else:
+                    print(f"{RED}Invalid choice! Please enter a number from the list.{RESET}")
+            
+            #### Handles potential exceptions that may occur while converting the input to an integer.
+            except ValueError:
+                    print(f"{RED}Invalid input! Please enter a number.{RESET}")
+        
+        ### Remove the word from the list, and write the updated list to the CSV file.
+        words.pop(choice - 1)
+
+        with open("custom.csv", "w", newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(["Word", "Hint"])
+            writer.writerows(words)
+
+        print(f'{GREEN}The word "{word}" deleted successfully!{RESET}')
+        input("\nPress Enter to continue...")
+
+    ## If the custom word file is not found, inform the user and suggest adding a word.
+    except FileNotFoundError:
+        print(f"{RED}Custom words file not found!{RESET}")
+        print(f"{YELLOW}Please add words first.{RESET}")
+
+    clear_screen()
+    
+# Defines a function that starts the game and manages the game loop.
+def play_game():
+    file_name = choose_difficulty()
+    word_data = load_words(file_name)
+
+    ## If the word data is None, prompt the user to press Enter, and return to the main menu.
+    if word_data is None:
+        input("\nPress Enter to continue...")
+        clear_screen()
+        play_game()
+        return
+    
+    ## Unpack the word data into secret_word and hint variables.
+    secret_word, hint = word_data
+
+    ## Intialise variables for the game state.
+    score = 100
+    guessed_letters_and_words = []
+    incorrect_guesses = 0
+    current_progress = ["_"] * len(secret_word)
+    max_attempts = len(HANGMAN_STAGES) - 1 # # Set max attempts to one less than the number of HANGMAN_STAGES because the last stage (index len(HANGMAN_STAGES)-1) is the "game over" state.
+
+    clear_screen()
+    print(f"The mystery word has been chosen! It has {len(secret_word)} letters! Try to guess it!")
+
+    hint_shown = False
+
+    ## The actual game loop starts here within function 'play_game()':
+    while score > 0 and "_" in current_progress and incorrect_guesses < max_attempts:
+
+        print(HANGMAN_STAGES[incorrect_guesses])
+        print(f"\nCurrent Word: {(' '.join(current_progress))}") #.join used to join elemnts in a list together in a single string.
+        
+        print(f"\nScore: {score}") # Displays the player's current score
+
+        print(f"\nGuessed Letters/Words: {', '.join(guessed_letters_and_words) if guessed_letters_and_words else 'None'}")
+
+        ### If the player has made 3 incorrect guesses or has already shown the hint, display the hint to provide assistance and prevent the game from becoming too difficult.
+        if incorrect_guesses >= 3 or hint_shown:
+            print(f"💡 {YELLOW}Hint: {hint}{RESET}")
+            hint_shown = True
+    
+        while True:
+            guess = input("Guess a letter or a word: ").strip().upper()
+
+            #### If the guess is empty, inform the user and prompt them to enter a guess.
+            if not guess:
+                print(f"{RED}Please enter a guess!{RESET}")
+                continue
+            
+            #### If the guess contains non-alphabetic characters, inform the user and prompt them to enter a valid guess.
+            if not guess.isalpha():
+                print(f"{RED}Only letters allowed!{RESET}")
+                continue
+
+            #### If the guess has already been made, inform the user and prompt them to enter a different guess.
+            if guess in guessed_letters_and_words:
+                print(f"{RED}You've already tried '{guess}'! Try something else.{RESET}")
+                continue
+            break
+
+
+
+        guessed_letters_and_words.append(guess)
+        clear_screen()
+
+        ### Check if the player has guessed the whole word correctly.
+        if guess == secret_word:
+            print(HANGMAN_STAGES[incorrect_guesses])
+            print(f"{GREEN}Woohoo! You guessed the word: {secret_word}{RESET}")
+            print(f"{GREEN}╔══════════════════════╗")
+            print(f"║       YOU WIN!       ║")
+            print(f"╚══════════════════════╝{RESET}")
+            points_change = 20
+            score += points_change
+            print(f"\n+20 bonus points for guessing the whole word!")
+            print(f"\nYour final score: {score}")
+            play_again()
+            return
+        
+        ### Check if player has guessed a letter or the whole word.
+        if len(guess) == 1:
+            ####  If the guess is a single letter and it's in the secret word, inform the user and update the score.
+            if guess in secret_word:
+                points_change = 10
+                score += points_change
+                print(f"{GREEN}Nice! '{guess}' is in the word! (+{points_change} points){RESET}")
+                
+                ##### Update each position in `current_progress` where the guessed letter matches.
+                    # Loop through indices instead of iterating directly to handle duplicate letters
+                for i in range(len(secret_word)):
+                    if secret_word[i] == guess:
+                        current_progress[i] = guess
+            
+            #### If the guess is a single letter and it's not in the secret word, inform the user and update the score.
+            else:
+                points_change = -10
+                score += points_change
+                print(f"{RED}Oops! '{guess}' is not in the word! ({points_change} points){RESET}")
+                incorrect_guesses += 1
+
+        ### If the player guesses a word that is not the secret word, inform the user and update the score.
+        else:
+            points_change = -20 # Larger penalty for whole-word guesses (-20 vs. -10 for letters) to discourage random guessing and reward players for strategic letter-by-letter progress.
+            score += points_change
+            print(f"{RED}Wrong word! '{guess}' is not the secret word. ({points_change} points){RESET}") 
+            incorrect_guesses += 1
+
+
+    ## Display the game over message, final score, and reveal the secret word while showing the Hangman's current state if the player ran out of attempts.
+    if incorrect_guesses >= max_attempts:
+        print(HANGMAN_STAGES[max_attempts])
+        print(f"\n{RED}╔══════════════════════╗")
+        print(f"║      GAME OVER!      ║")
+        print(f"╚══════════════════════╝{RESET}")
+        print(f"\nFinal Score: {score}")
+        print(f"The secret word was: {secret_word}")
+    
+    ## Display the game over message, final score, and reveal the secret word while showing the Hangman's current state if the player ran out of points (score = 0).
+    elif score <= 0:
+        print(HANGMAN_STAGES[incorrect_guesses])
+        print(f"\n{RED}╔═══════════════════════╗")
+        print(f"║   RAN OUT OF POINTS!  ║")
+        print(f"╚═══════════════════════╝{RESET}")
+        print(f"\nFinal Score: {score}")
+        print(f"The secret word was: {secret_word}")
+
+    ### If the player has guessed the word correctly, display a congratulatory message and the final score.
+    else:
+        print(HANGMAN_STAGES[incorrect_guesses])
+        print(f"\n{GREEN}╔══════════════════════╗")
+        print(f"║   WORD COMPLETED!    ║")
+        print(f"╚══════════════════════╝{RESET}")
+        print(f"{GREEN}\nCongratulations! You guessed the word: {secret_word}{RESET}")
+        print(f"\nYour final score: {score}")
+
+    play_again()
+    return
+
+# Defines a function that prompts the player to play again or exit the game.
+def play_again():
+    while True:
+        choice = input("\nDo you want to play again? \n[1]: Exit, [2]: Play Again: ").strip()
+
+        ### If the player chooses to exit, print a message and exit the program.
+        if choice == "1":
+            print(f"{RESET}\nThanks for playing! Goodbye!")
+            exit()
+
+        ### If the player chooses to play again, clear the screen and call the play_game function to restart the game.
+        elif choice == "2":
+            clear_screen()
+            play_game()
+            return
+        
+        ### If the player enters an invalid choice, inform them and prompt them to enter a valid choice, ensuring the program receives correct input and continues smoothly.
+        else:
+            print(f"{RED}Invalid choice! Please enter 1 to Exit or 2 to Play Again.{RESET}")
+
+# Calls the main function to start the game.
+play_game()
+
+        
